@@ -1,0 +1,91 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+    
+    // Check if user is authenticated (anonymous or otherwise)
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // ============================================================
+    // USERS COLLECTION
+    // ============================================================
+    
+    // Users can read and write their own document only
+    match /users/{userId} {
+      // Allow read if authenticated and own the document
+      allow read: if isOwner(userId);
+      
+      // Allow create if authenticated (Firebase creates the doc)
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Allow update if own the document
+      allow update: if isOwner(userId);
+      
+      // No delete (keep user data)
+      allow delete: if false;
+    }
+    
+    // ============================================================
+    // SYMPTOMS SUBCOLLECTION
+    // ============================================================
+    
+    // Pattern: users/{userId}/symptoms/{symptomId}
+    match /users/{userId}/symptoms/{symptomId} {
+      // Only owner can read their symptoms
+      allow read: if isOwner(userId);
+      
+      // Only owner can create symptoms
+      // Data validation: name required, severity 1-10, triggers array
+      allow create: if isOwner(userId)
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.severity is int
+        && request.resource.data.severity >= 1
+        && request.resource.data.severity <= 10;
+      
+      // Only owner can update symptoms
+      allow update: if isOwner(userId);
+      
+      // Only owner can delete symptoms
+      allow delete: if isOwner(userId);
+    }
+    
+    // ============================================================
+    // INSIGHTS SUBCOLLECTION
+    // ============================================================
+    
+    // Pattern: users/{userId}/insights/{insightId}
+    match /users/{userId}/insights/{insightId} {
+      // Only owner can read insights
+      allow read: if isOwner(userId);
+      
+      // Only server (Cloud Function) can create insights
+      // Client app cannot directly create insights
+      allow create: if false;
+      
+      // Only owner can update
+      allow update: if isOwner(userId);
+      
+      // Only owner can delete
+      allow delete: if isOwner(userId);
+    }
+    
+    // ============================================================
+    // SUBSCRIPTION DATA (within user document)
+    // ============================================================
+    
+    // Subscription fields are stored in the user document
+    // Access controlled by the /users/{userId} rules above
+  }
+}

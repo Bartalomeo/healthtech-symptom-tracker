@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "AI Symptom Tracker",
+    "slug": "healthtech-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#F9FAFB",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.healthtech.symptomtracker"
+    },
+    "android": {
+      "package": "com.healthtech.symptomtracker",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F9FAFB"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguard": false,
+            "kotlinVersion": "1.9.24"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "aa20897e-1467-4e57-9464-c8152be53561"
+      }
+    }
+  }
+}
