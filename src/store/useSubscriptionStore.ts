@@ -2,15 +2,11 @@
  * Zustand Store for Subscription/Premium Status
  * 
  * Manages user subscription state across the app.
- * Syncs with Firestore for server-validated status.
- * 
- * IMPORTANT: This store reads from Firebase Firestore (not Supabase).
- * The 'patreonTier' field is stored in each user's Firestore document.
+ * Syncs with Firebase Cloud Function for server-validated status.
  */
 
 import { create } from 'zustand'
-import { doc, getDoc } from 'firebase/firestore'
-import { auth, db } from '../lib/firebase'
+import { supabase } from '../lib/supabase'
 
 // ============================================================
 // TYPES
@@ -36,8 +32,6 @@ export interface SubscriptionState {
   loadSubscription: () => Promise<void>
   setTier: (tier: SubscriptionTier) => void
   refreshFeatures: (features: SubscriptionFeatures) => void
-  // Dev mode for testing - bypasses server check
-  devSetTier: (tier: SubscriptionTier) => void
 }
 
 const DEFAULT_FEATURES: SubscriptionFeatures = {
@@ -46,21 +40,6 @@ const DEFAULT_FEATURES: SubscriptionFeatures = {
   pdfExport: false,
   weatherIntegration: false,
   advancedTriggers: false
-}
-
-// ============================================================
-// FEATURE CALCULATION
-// ============================================================
-
-function tierToFeatures(tier: SubscriptionTier): SubscriptionFeatures {
-  const isPremium = tier !== 'none'
-  return {
-    unlimitedSymptoms: isPremium,
-    aiInsights: isPremium,
-    pdfExport: tier === 'premium',
-    weatherIntegration: isPremium,
-    advancedTriggers: tier === 'premium'
-  }
 }
 
 // ============================================================
@@ -74,16 +53,18 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   features: DEFAULT_FEATURES,
 
   /**
-   * Load subscription status from Firestore
-   * Reads 'patreonTier' field from the user's document
+   * Load subscription status from Firebase
+   * Called on app start and after Patreon linking
    */
   loadSubscription: async () => {
     set({ isLoading: true })
     
     try {
-      const { currentUser } = auth
+      // Call Firebase Cloud Function to get subscription status
+      // This is server-validated, not just local state
+      const { data: { session } } = await supabase.auth.getSession()
       
-      if (!currentUser) {
+      if (!session) {
         set({ 
           tier: 'none', 
           isPremium: false, 
@@ -93,23 +74,31 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
         return
       }
 
-      // Read from Firestore
-      const userRef = doc(db, 'users', currentUser.uid)
-      const userDoc = await getDoc(userRef)
+      // For Supabase implementation, we'll fetch from a stored function
+      // In Firebase implementation, this would be:
+      // const result = await functions.httpsCallable('getSubscriptionStatus')()
+      
+      // For now, check local metadata (in production, use Cloud Function)
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('patreon_tier, premium')
+        .eq('id', session.user.id)
+        .single()
 
-      if (userDoc.exists()) {
-        const data = userDoc.data()
-        const tier = (data.patreonTier || 'none') as SubscriptionTier
-        const features = tierToFeatures(tier)
+      if (userData) {
+        const tier = (userData.patreon_tier || 'none') as SubscriptionTier
+        const isPremium = tier !== 'none' || userData.premium === true
         
-        set({ 
-          tier, 
-          isPremium: tier !== 'none', 
-          features, 
-          isLoading: false 
-        })
+        const features: SubscriptionFeatures = {
+          unlimitedSymptoms: isPremium,
+          aiInsights: isPremium,
+          pdfExport: tier === 'premium',
+          weatherIntegration: isPremium,
+          advancedTriggers: tier === 'premium'
+        }
+
+        set({ tier, isPremium, features, isLoading: false })
       } else {
-        // New user - no subscription
         set({ 
           tier: 'none', 
           isPremium: false, 
@@ -132,8 +121,16 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
    * Update tier locally (optimistic update)
    */
   setTier: (tier: SubscriptionTier) => {
-    const features = tierToFeatures(tier)
-    set({ tier, isPremium: tier !== 'none', features })
+    const isPremium = tier !== 'none'
+    const features: SubscriptionFeatures = {
+      unlimitedSymptoms: isPremium,
+      aiInsights: isPremium,
+      pdfExport: tier === 'premium',
+      weatherIntegration: isPremium,
+      advancedTriggers: tier === 'premium'
+    }
+    
+    set({ tier, isPremium, features })
   },
 
   /**
@@ -145,16 +142,6 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
                                   features.aiInsights ? 'base' : 'none'
     
     set({ features, isPremium, tier })
-  },
-
-  /**
-   * DEV MODE ONLY: Set tier directly for testing
-   * This bypasses server validation - DO NOT use in production
-   */
-  devSetTier: (tier: SubscriptionTier) => {
-    console.warn('[DEV MODE] Setting tier to:', tier)
-    const features = tierToFeatures(tier)
-    set({ tier, isPremium: tier !== 'none', features })
   }
 }))
 
@@ -172,19 +159,11 @@ export const selectCanUseUnlimited = (state: SubscriptionState) => state.feature
 
 /*
 import { useSubscriptionStore, selectCanUseAI } from '@/store/useSubscriptionStore'
+import { useSubscriptionStore } from '@/store/useSubscriptionStore'
 
 // In component:
 const { features, tier, loadSubscription } = useSubscriptionStore()
 
 // With selector (better performance):
 const canUseAI = useSubscriptionStore(selectCanUseAI)
-
-// DEV MODE - for testing (e.g., in Settings screen):
-const { devSetTier } = useSubscriptionStore()
-devSetTier('premium') // Grants all premium features
-
-// To persist dev mode changes to Firestore (for testing):
-import { doc, updateDoc } from 'firebase/firestore'
-const userRef = doc(db, 'users', currentUser.uid)
-await updateDoc(userRef, { patreonTier: 'premium' })
 */

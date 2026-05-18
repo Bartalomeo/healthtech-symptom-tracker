@@ -2,14 +2,13 @@
  * Settings Screen - Profile, Subscription, Privacy
  */
 
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Linking, Platform } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Linking } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { doc, updateDoc } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
-import { auth, db } from '../../src/lib/firebase'
+import { auth } from '../../src/lib/firebase'
 import { useAuthStore } from '../../src/store/useAuthStore'
-import { useSubscriptionStore, SubscriptionTier } from '../../src/store/useSubscriptionStore'
+import { useSubscriptionStore } from '../../src/store/useSubscriptionStore'
 import { TierBadge } from '../../src/components/PremiumGate'
 
 export default function SettingsScreen() {
@@ -38,29 +37,6 @@ export default function SettingsScreen() {
   const handlePatreon = () => {
     Linking.openURL('https://www.patreon.com/healthtech')
   }
-
-  // DEV MODE: Quick tier switch for testing premium features
-  const { devSetTier, tier: currentTier } = useSubscriptionStore()
-  
-  const handleDevTierChange = async (newTier: SubscriptionTier) => {
-    // Update store locally
-    devSetTier(newTier)
-    
-    // Also persist to Firestore for testing
-    if (currentTier !== 'none') {
-      try {
-        const userRef = doc(db, 'users', auth.currentUser!.uid)
-        await updateDoc(userRef, { patreonTier: newTier })
-        Alert.alert('DEV MODE', `Tier set to ${newTier}. Stored in Firestore.`)
-      } catch (err) {
-        console.warn('Failed to update Firestore:', err)
-      }
-    } else {
-      Alert.alert('DEV MODE', `Tier set to ${newTier} (local only - no Firebase user)`)
-    }
-  }
-
-  const DEV_TIERS: SubscriptionTier[] = ['none', 'base', 'premium']
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -103,30 +79,6 @@ export default function SettingsScreen() {
               <Text style={styles.upgradeButtonText}>Upgrade on Patreon</Text>
             </TouchableOpacity>
           )}
-        </View>
-
-        {/* DEV MODE: Quick Tier Switcher */}
-        <View style={styles.devModeCard}>
-          <Text style={styles.devModeTitle}>🔧 DEV MODE - Test Subscriptions</Text>
-          <View style={styles.devModeButtons}>
-            {DEV_TIERS.map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[
-                  styles.devModeButton,
-                  currentTier === t && styles.devModeButtonActive
-                ]}
-                onPress={() => handleDevTierChange(t)}
-              >
-                <Text style={[
-                  styles.devModeButtonText,
-                  currentTier === t && styles.devModeButtonTextActive
-                ]}>
-                  {t === 'none' ? 'Free' : t.charAt(0).toUpperCase() + t.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         {/* Menu Sections */}
@@ -324,45 +276,6 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 18
-  },
-  // DEV MODE styles
-  devModeCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24
-  },
-  devModeTitle: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
-  },
-  devModeButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between'
-  },
-  devModeButton: {
-    flex: 1,
-    backgroundColor: '#374151',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    marginHorizontal: 4,
-    alignItems: 'center'
-  },
-  devModeButtonActive: {
-    backgroundColor: '#7C3AED'
-  },
-  devModeButtonText: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    fontWeight: '600'
-  },
-  devModeButtonTextActive: {
-    color: '#FFFFFF'
   }
 })
 

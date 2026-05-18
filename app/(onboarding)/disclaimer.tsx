@@ -5,41 +5,50 @@
  * App Store will reject the app if this screen is not implemented.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { useOnboardingStore } from '../../src/store/useOnboardingStore'
+import { useAuthStore } from '../../src/store/useAuthStore'
 
 const { height } = Dimensions.get('window')
 
 export default function DisclaimerScreen() {
   const router = useRouter()
+  const { acceptDisclaimer, isLoading } = useOnboardingStore()
+  const { signInAnon } = useAuthStore()
   const [accepted, setAccepted] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [localLoading, setLocalLoading] = useState(false)
 
   const handleAccept = async () => {
+    console.log('>>> handleAccept called, accepted:', accepted)
     if (!accepted) return
 
-    // Step 1: Immediately disable button and update UI (sync, commits before navigation)
-    setIsLoading(true)
+    setLocalLoading(true)
 
-    // Step 2: Fire Firebase ops in background — DONT await, dont block navigation
-    // These are fire-and-forget: sign-in and disclaimer sync happen async
-    import('../../src/store/useAuthStore').then(({ useAuthStore }) =>
-      useAuthStore.getState().signInAnon().catch(err =>
-        console.warn('signInAnon error (non-fatal):', err)
-      )
-    )
-    import('../../src/store/useOnboardingStore').then(({ useOnboardingStore }) =>
-      useOnboardingStore.getState().acceptDisclaimer().catch(err =>
-        console.warn('acceptDisclaimer error (non-fatal):', err)
-      )
-    )
+    try {
+      console.log('>>> step 1: signInAnon')
+      await signInAnon()
+      console.log('>>> step 2: acceptDisclaimer')
+      await acceptDisclaimer()
+    } catch (err) {
+      console.error('Accept disclaimer error:', err)
+    }
 
-    // Step 3: Navigate RIGHT NOW — Firebase does NOT block navigation
-    // accepted flag is already set in local state, user has already checked the box
-    router.replace('/(tabs)')
+    console.log('>>> step 3: navigate')
+    // Use setTimeout to ensure navigation happens even if store state is stuck
+    setTimeout(() => {
+      router.replace('/(tabs)')
+    }, 100)
+
+    setLocalLoading(false)
   }
+
+  // Debug: log state changes
+  useEffect(() => {
+    console.log('disclaimer state:', { accepted, localLoading, isLoading })
+  }, [])
 
   return (
     <SafeAreaView style={styles.container}>
@@ -81,10 +90,10 @@ export default function DisclaimerScreen() {
             <Text style={styles.sectionTitle}>Your Responsibility</Text>
             <Text style={styles.sectionText}>
               By using this app, you acknowledge and agree that:{'\n\n'}
-              • The app is not a medical device{'n'}
-              • You should always consult a qualified healthcare provider{'n'}
-              • You should not disregard professional medical advice{'n'}
-              • You are responsible for your own health decisions{'n'}
+              • The app is not a medical device{'\n'}
+              • You should always consult a qualified healthcare provider{'\n'}
+              • You should not disregard professional medical advice{'\n'}
+              • You are responsible for your own health decisions{'\n'}
               • The app creators are not liable for any damages arising from use
             </Text>
           </View>
@@ -115,13 +124,13 @@ export default function DisclaimerScreen() {
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={[styles.continueButton, (!accepted || isLoading) && styles.continueButtonDisabled]}
+          style={[styles.continueButton, (!accepted || localLoading) && styles.continueButtonDisabled]}
           onPress={handleAccept}
-          disabled={!accepted || isLoading}
+          disabled={!accepted || localLoading}
           activeOpacity={0.8}
         >
           <Text style={styles.continueButtonText}>
-            {isLoading ? 'Please wait...' : 'I Understand & Continue'}
+            {localLoading ? 'Processing...' : 'I Understand & Continue'}
           </Text>
         </TouchableOpacity>
 
