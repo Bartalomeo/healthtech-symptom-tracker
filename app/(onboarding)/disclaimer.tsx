@@ -22,27 +22,27 @@ export default function DisclaimerScreen() {
   const [localLoading, setLocalLoading] = useState(false)
 
   const handleAccept = async () => {
+    console.log('>>> handleAccept called, accepted:', accepted)
     if (!accepted) return
 
     setLocalLoading(true)
 
     try {
-      // Step 1: Sign in anonymously
+      console.log('>>> step 1: signInAnon')
       await signInAnon()
-
-      // Step 2: Accept disclaimer (create user doc if needed)
+      console.log('>>> step 2: acceptDisclaimer')
       await acceptDisclaimer()
-
-      // Step 3: Proceed regardless of Firebase state
-      // Navigate to main app
-      router.replace('/(tabs)')
     } catch (err) {
       console.error('Accept disclaimer error:', err)
-      // Even if Firebase fails, navigate
-      router.replace('/(tabs)')
-    } finally {
-      setLocalLoading(false)
     }
+
+    console.log('>>> step 3: navigate')
+    // Use setTimeout to ensure navigation happens even if store state is stuck
+    setTimeout(() => {
+      router.replace('/(tabs)')
+    }, 100)
+
+    setLocalLoading(false)
   }
 
   // Debug: log state changes
