@@ -1,9 +1,12 @@
 /**
  * Root Layout with Anonymous Auth
  * Handles onboarding and authentication flow
+ * 
+ * IMPORTANT: All Stack.Screen must be rendered unconditionally.
+ * Navigation happens via useEffect + router.replace() based on auth state.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { View, Text, StyleSheet } from 'react-native'
@@ -17,10 +20,8 @@ SplashScreen.preventAutoHideAsync()
 export default function RootLayout() {
   const { session, isLoading: authLoading, initialize } = useAuthStore()
   const { disclaimerAccepted, isLoading: onboardingLoading, loadOnboardingStatus } = useOnboardingStore()
-  const [initialized, setInitialized] = useState(false)
-  const [initError, setInitError] = useState<string | null>(null)
 
-  // Initialize auth and onboarding once on mount
+  // Initialize auth and onboarding on mount
   useEffect(() => {
     const init = async () => {
       try {
@@ -28,38 +29,17 @@ export default function RootLayout() {
         await loadOnboardingStatus()
       } catch (e) {
         console.warn('Init error (non-fatal):', e)
-      } finally {
-        setInitialized(true)
       }
     }
     init()
   }, [])
 
-  // Hide splash when both are ready
+  // Hide splash when auth is ready (not loading)
   useEffect(() => {
-    if (initialized && !authLoading && !onboardingLoading) {
+    if (!authLoading) {
       SplashScreen.hideAsync()
     }
-  }, [initialized, authLoading, onboardingLoading])
-
-  // Fallback: force hide splash after 10 seconds no matter what
-  useEffect(() => {
-    const t = setTimeout(() => {
-      SplashScreen.hideAsync()
-      setInitialized(true) // ensure we don't stay on loading forever
-    }, 10000)
-    return () => clearTimeout(t)
-  }, [])
-
-  // Show loading screen while checking auth
-  if (!initialized || authLoading || onboardingLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingEmoji}>🩺</Text>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    )
-  }
+  }, [authLoading])
 
   return (
     <>
@@ -71,26 +51,11 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: '#F9FAFB' }
         }}
       >
-        {/* Landing page for unauthenticated users */}
-        {!session && (
-          <Stack.Screen name="index" options={{ animation: 'fade' }} />
-        )}
-
-        {/* Onboarding flow - required before using the app */}
-        {session && !disclaimerAccepted && (
-          <Stack.Screen
-            name="(onboarding)"
-            options={{ animation: 'fade' }}
-          />
-        )}
-
-        {/* Main tab navigation - only when fully authenticated and onboarded */}
-        {session && disclaimerAccepted && (
-          <Stack.Screen
-            name="(tabs)"
-            options={{ animation: 'fade' }}
-          />
-        )}
+        {/* ALL screens must be rendered unconditionally for expo-router to work */}
+        <Stack.Screen name="index" options={{ animation: 'fade' }} />
+        <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="subscription" options={{ animation: 'fade', presentation: 'modal' }} />
       </Stack>
     </>
   )
