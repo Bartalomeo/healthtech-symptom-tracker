@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
+import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
 
 // ============================================================
@@ -77,10 +77,24 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       }
 
       const userRef = doc(db, 'users', currentUser.uid)
-      await updateDoc(userRef, {
-        disclaimerAccepted: true,
-        disclaimerAcceptedAt: new Date().toISOString()
-      })
+      const userDoc = await getDoc(userRef)
+
+      if (userDoc.exists()) {
+        await updateDoc(userRef, {
+          disclaimerAccepted: true,
+          disclaimerAcceptedAt: new Date().toISOString()
+        })
+      } else {
+        await setDoc(userRef, {
+          disclaimerAccepted: true,
+          disclaimerAcceptedAt: new Date().toISOString(),
+          onboardingCompleted: false,
+          createdAt: new Date().toISOString(),
+          patreonTier: 'none',
+          patreonActive: false,
+          premium: false
+        })
+      }
 
       set({ disclaimerAccepted: true, isLoading: false })
     } catch (err) {

@@ -19,16 +19,27 @@ export default function DisclaimerScreen() {
   const { acceptDisclaimer, isLoading } = useOnboardingStore()
   const { signInAnon } = useAuthStore()
   const [accepted, setAccepted] = useState(false)
+  const [localLoading, setLocalLoading] = useState(false)
 
   const handleAccept = async () => {
-    // First accept disclaimer
-    await acceptDisclaimer()
-    
-    // Then sign in anonymously
-    await signInAnon()
-    
-    // Navigate to main app
-    router.replace('/(tabs)')
+    if (!accepted) return
+
+    setLocalLoading(true)
+
+    try {
+      // Step 1: Sign in FIRST to create the user document
+      await signInAnon()
+
+      // Step 2: Then accept disclaimer (document now exists)
+      await acceptDisclaimer()
+
+      // Navigate to main app
+      router.replace('/(tabs)')
+    } catch (err) {
+      console.error('Accept disclaimer failed:', err)
+    } finally {
+      setLocalLoading(false)
+    }
   }
 
   return (
@@ -105,13 +116,13 @@ export default function DisclaimerScreen() {
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={[styles.continueButton, !accepted && styles.continueButtonDisabled]}
+          style={[styles.continueButton, (!accepted || localLoading) && styles.continueButtonDisabled]}
           onPress={handleAccept}
-          disabled={!accepted || isLoading}
+          disabled={!accepted || localLoading}
           activeOpacity={0.8}
         >
           <Text style={styles.continueButtonText}>
-            {isLoading ? 'Processing...' : 'I Understand & Continue'}
+            {localLoading ? 'Processing...' : 'I Understand & Continue'}
           </Text>
         </TouchableOpacity>
 
