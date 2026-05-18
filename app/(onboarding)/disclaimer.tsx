@@ -5,7 +5,7 @@
  * App Store will reject the app if this screen is not implemented.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -27,20 +27,28 @@ export default function DisclaimerScreen() {
     setLocalLoading(true)
 
     try {
-      // Step 1: Sign in FIRST to create the user document
+      // Step 1: Sign in anonymously
       await signInAnon()
 
-      // Step 2: Then accept disclaimer (document now exists)
+      // Step 2: Accept disclaimer (create user doc if needed)
       await acceptDisclaimer()
 
+      // Step 3: Proceed regardless of Firebase state
       // Navigate to main app
       router.replace('/(tabs)')
     } catch (err) {
-      console.error('Accept disclaimer failed:', err)
+      console.error('Accept disclaimer error:', err)
+      // Even if Firebase fails, navigate
+      router.replace('/(tabs)')
     } finally {
       setLocalLoading(false)
     }
   }
+
+  // Debug: log state changes
+  useEffect(() => {
+    console.log('disclaimer state:', { accepted, localLoading, isLoading })
+  }, [])
 
   return (
     <SafeAreaView style={styles.container}>
