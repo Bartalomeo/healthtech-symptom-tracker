@@ -20,32 +20,29 @@ export default function DisclaimerScreen() {
   const handleAccept = async () => {
     if (!accepted) return
 
+    // Immediately disable button visually
     setIsLoading(true)
 
-    try {
-      // Try Firebase sign-in (fire and forget - don't block navigation)
-      Promise.all([
-        import('../../src/store/useAuthStore').then(({ useAuthStore }) => 
-          useAuthStore.getState().signInAnon().catch(err => 
-            console.warn('Firebase sign-in failed (non-fatal):', err)
-          )
-        ),
-        import('../../src/store/useOnboardingStore').then(({ useOnboardingStore }) =>
-          useOnboardingStore.getState().acceptDisclaimer().catch(err =>
-            console.warn('Disclaimer accept failed (non-fatal):', err)
-          )
-        )
-      ])
-    } catch (err) {
-      console.warn('Background sync error:', err)
-    }
+    // Fire Firebase operations in background (don't await)
+    const signInPromise = import('../../src/store/useAuthStore').then(({ useAuthStore }) =>
+      useAuthStore.getState().signInAnon().catch(err =>
+        console.warn('Firebase sign-in failed (non-fatal):', err)
+      )
+    )
+    const disclaimerPromise = import('../../src/store/useOnboardingStore').then(({ useOnboardingStore }) =>
+      useOnboardingStore.getState().acceptDisclaimer().catch(err =>
+        console.warn('Disclaimer accept failed (non-fatal):', err)
+      )
+    )
 
-    // Navigate IMMEDIATELY - don't wait for Firebase
-    // The try/catch above is non-blocking, navigation happens right away
-    router.replace('/(tabs)')
+    // Start both but don't wait
+    signInPromise
+    disclaimerPromise
 
-    // Set loading to false after a short delay to prevent UI flash
-    setTimeout(() => setIsLoading(false), 500)
+    // Navigate after short delay — ensures loading state commits first
+    setTimeout(() => {
+      router.replace('/(tabs)')
+    }, 100)
   }
 
   return (
