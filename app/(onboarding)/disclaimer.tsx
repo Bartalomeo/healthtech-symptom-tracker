@@ -20,29 +20,25 @@ export default function DisclaimerScreen() {
   const handleAccept = async () => {
     if (!accepted) return
 
-    // Immediately disable button visually
+    // Step 1: Immediately disable button and update UI (sync, commits before navigation)
     setIsLoading(true)
 
-    // Fire Firebase operations in background (don't await)
-    const signInPromise = import('../../src/store/useAuthStore').then(({ useAuthStore }) =>
+    // Step 2: Fire Firebase ops in background — DONT await, dont block navigation
+    // These are fire-and-forget: sign-in and disclaimer sync happen async
+    import('../../src/store/useAuthStore').then(({ useAuthStore }) =>
       useAuthStore.getState().signInAnon().catch(err =>
-        console.warn('Firebase sign-in failed (non-fatal):', err)
+        console.warn('signInAnon error (non-fatal):', err)
       )
     )
-    const disclaimerPromise = import('../../src/store/useOnboardingStore').then(({ useOnboardingStore }) =>
+    import('../../src/store/useOnboardingStore').then(({ useOnboardingStore }) =>
       useOnboardingStore.getState().acceptDisclaimer().catch(err =>
-        console.warn('Disclaimer accept failed (non-fatal):', err)
+        console.warn('acceptDisclaimer error (non-fatal):', err)
       )
     )
 
-    // Start both but don't wait
-    signInPromise
-    disclaimerPromise
-
-    // Navigate after short delay — ensures loading state commits first
-    setTimeout(() => {
-      router.replace('/(tabs)')
-    }, 100)
+    // Step 3: Navigate RIGHT NOW — Firebase does NOT block navigation
+    // accepted flag is already set in local state, user has already checked the box
+    router.replace('/(tabs)')
   }
 
   return (
