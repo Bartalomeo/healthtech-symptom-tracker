@@ -79,6 +79,37 @@ export default function SettingsScreen() {
               <Text style={styles.upgradeButtonText}>Upgrade on Patreon</Text>
             </TouchableOpacity>
           )}
+
+          {/*
+          ═══════════════════════════════════════════════════════
+          DEV MODE TIER SWITCHER — REMOVE BEFORE PRODUCTION
+          ═══════════════════════════════════════════════════════
+          */}
+          <View style={styles.devModeSection}>
+            <Text style={styles.devModeTitle}>🔧 Dev Mode</Text>
+            <Text style={styles.devModeSubtitle}>Testing only — hide before production</Text>
+            <View style={styles.devModeButtons}>
+              <TouchableOpacity
+                style={[styles.devModeBtn, tier === 'free' && styles.devModeBtnActive]}
+                onPress={() => useSubscriptionStore.getState().devSetTier('free')}
+              >
+                <Text style={[styles.devModeBtnText, tier === 'free' && styles.devModeBtnTextActive]}>Free</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.devModeBtn, tier === 'base' && styles.devModeBtnActive]}
+                onPress={() => useSubscriptionStore.getState().devSetTier('base')}
+              >
+                <Text style={[styles.devModeBtnText, tier === 'base' && styles.devModeBtnTextActive]}>Base</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.devModeBtn, tier === 'premium' && styles.devModeBtnActive]}
+                onPress={() => useSubscriptionStore.getState().devSetTier('premium')}
+              >
+                <Text style={[styles.devModeBtnText, tier === 'premium' && styles.devModeBtnTextActive]}>Premium</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          {/* ═══════════════════════════════════════════════════════ */}
         </View>
 
         {/* Menu Sections */}
@@ -276,6 +307,51 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 18
+  },
+  // DEV MODE STYLES
+  devModeSection: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#F59E0B'
+  },
+  devModeTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 4
+  },
+  devModeSubtitle: {
+    fontSize: 12,
+    color: '#B45309',
+    marginBottom: 12
+  },
+  devModeButtons: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  devModeBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#D97706',
+    alignItems: 'center'
+  },
+  devModeBtnActive: {
+    backgroundColor: '#F59E0B'
+  },
+  devModeBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400E'
+  },
+  devModeBtnTextActive: {
+    color: '#FFFFFF'
   }
 })
 
