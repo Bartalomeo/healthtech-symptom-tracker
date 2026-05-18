@@ -40,38 +40,53 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true })
 
     return new Promise((resolve) => {
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          // User signed in (anonymous or otherwise)
-          set({ session: user, isLoading: false, error: null })
-          
-          // Create or update user document in Firestore
-          try {
-            const userRef = doc(db, 'users', user.uid)
-            const userDoc = await getDoc(userRef)
-            
-            if (!userDoc.exists()) {
-              // First time user - create document
-              await setDoc(userRef, {
-                createdAt: new Date().toISOString(),
-                disclaimerAccepted: false,
-                onboardingCompleted: false,
-                patreonTier: 'none',
-                patreonActive: false,
-                premium: false
-              })
-            }
-          } catch (err) {
-            console.error('Failed to create user document:', err)
-          }
-        } else {
-          // No user - need to sign in anonymously
-          set({ session: null, isLoading: false })
-        }
-        
-        unsubscribe()
+      // Timeout after 5 seconds - force stop loading
+      const timeout = setTimeout(() => {
+        console.warn('Auth init timeout - proceeding without Firebase')
+        set({ session: null, isLoading: false, error: null })
         resolve()
-      })
+      }, 5000)
+
+      try {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          clearTimeout(timeout)
+          if (user) {
+            // User signed in (anonymous or otherwise)
+            set({ session: user, isLoading: false, error: null })
+
+            // Create or update user document in Firestore
+            try {
+              const userRef = doc(db, 'users', user.uid)
+              const userDoc = await getDoc(userRef)
+
+              if (!userDoc.exists()) {
+                // First time user - create document
+                await setDoc(userRef, {
+                  createdAt: new Date().toISOString(),
+                  disclaimerAccepted: false,
+                  onboardingCompleted: false,
+                  patreonTier: 'none',
+                  patreonActive: false,
+                  premium: false
+                })
+              }
+            } catch (err) {
+              console.error('Failed to create user document:', err)
+            }
+          } else {
+            // No user - proceed as guest (no auto sign-in)
+            set({ session: null, isLoading: false, error: null })
+          }
+
+          unsubscribe()
+          resolve()
+        })
+      } catch (err) {
+        clearTimeout(timeout)
+        console.error('Firebase auth error:', err)
+        set({ session: null, isLoading: false, error: String(err) })
+        resolve()
+      }
     })
   },
 

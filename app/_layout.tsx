@@ -3,7 +3,7 @@
  * Handles onboarding and authentication flow
  */
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { View, Text, StyleSheet } from 'react-native'
@@ -15,17 +15,44 @@ import { useOnboardingStore } from '../src/store/useOnboardingStore'
 SplashScreen.preventAutoHideAsync()
 
 export default function RootLayout() {
-  const { session, isLoading: authLoading } = useAuthStore()
-  const { disclaimerAccepted, isLoading: onboardingLoading } = useOnboardingStore()
+  const { session, isLoading: authLoading, initialize } = useAuthStore()
+  const { disclaimerAccepted, isLoading: onboardingLoading, loadOnboardingStatus } = useOnboardingStore()
+  const [initialized, setInitialized] = useState(false)
+  const [initError, setInitError] = useState<string | null>(null)
 
+  // Initialize auth and onboarding once on mount
   useEffect(() => {
-    if (!authLoading && !onboardingLoading) {
+    const init = async () => {
+      try {
+        await initialize()
+        await loadOnboardingStatus()
+      } catch (e) {
+        console.warn('Init error (non-fatal):', e)
+      } finally {
+        setInitialized(true)
+      }
+    }
+    init()
+  }, [])
+
+  // Hide splash when both are ready
+  useEffect(() => {
+    if (initialized && !authLoading && !onboardingLoading) {
       SplashScreen.hideAsync()
     }
-  }, [authLoading, onboardingLoading])
+  }, [initialized, authLoading, onboardingLoading])
 
-  // Show loading while checking auth
-  if (authLoading || onboardingLoading) {
+  // Fallback: force hide splash after 10 seconds no matter what
+  useEffect(() => {
+    const t = setTimeout(() => {
+      SplashScreen.hideAsync()
+      setInitialized(true) // ensure we don't stay on loading forever
+    }, 10000)
+    return () => clearTimeout(t)
+  }, [])
+
+  // Show loading screen while checking auth
+  if (!initialized || authLoading || onboardingLoading) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingEmoji}>🩺</Text>
@@ -44,27 +71,24 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: '#F9FAFB' }
         }}
       >
-        {/* Onboarding flow - medical disclaimer required */}
-        {!disclaimerAccepted && (
-          <Stack.Screen 
-            name="(onboarding)" 
-            options={{ animation: 'fade' }} 
+        {/* Landing page for unauthenticated users */}
+        {!session && (
+          <Stack.Screen name="index" options={{ animation: 'fade' }} />
+        )}
+
+        {/* Onboarding flow - required before using the app */}
+        {session && !disclaimerAccepted && (
+          <Stack.Screen
+            name="(onboarding)"
+            options={{ animation: 'fade' }}
           />
         )}
 
-        {/* Auth screens */}
-        {!session && disclaimerAccepted && (
-          <Stack.Screen 
-            name="(auth)" 
-            options={{ animation: 'fade' }} 
-          />
-        )}
-
-        {/* Main tab navigation */}
+        {/* Main tab navigation - only when fully authenticated and onboarded */}
         {session && disclaimerAccepted && (
-          <Stack.Screen 
-            name="(tabs)" 
-            options={{ animation: 'fade' }} 
+          <Stack.Screen
+            name="(tabs)"
+            options={{ animation: 'fade' }}
           />
         )}
       </Stack>
